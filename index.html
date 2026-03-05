@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Early Warning System – Digital Misinformation Panic Detection</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #050a10;
+      --surface: #0b1421;
+      --panel: #0f1d2e;
+      --border: #1a3050;
+      --accent: #00e5ff;
+      --danger: #ff3b5c;
+      --warn: #ffb300;
+      --safe: #00e676;
+      --text: #ccd8e8;
+      --muted: #5a7a9a;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content:'';
+      position:fixed; inset:0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size:40px 40px;
+      pointer-events:none; z-index:0;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position:relative; z-index:10;
+      padding:20px 40px;
+      display:flex; align-items:center; justify-content:space-between;
+      border-bottom:1px solid var(--border);
+      background:rgba(5,10,16,0.95);
+      backdrop-filter:blur(12px);
+    }
+    .logo { display:flex; align-items:center; gap:14px; }
+    .logo-icon {
+      width:42px; height:42px;
+      background:linear-gradient(135deg,var(--accent),#0072ff);
+      border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:20px;
+      animation:pulse-icon 2s ease-in-out infinite;
+    }
+    @keyframes pulse-icon {
+      0%,100%{box-shadow:0 0 20px rgba(0,229,255,0.25)}
+      50%{box-shadow:0 0 35px rgba(0,229,255,0.55)}
+    }
+    .logo-text {
+      font-family:'Orbitron',monospace;
+      font-size:12px; font-weight:700;
+      letter-spacing:2px; color:var(--accent);
+      text-transform:uppercase; line-height:1.4;
+    }
+    .logo-text span { display:block; font-size:10px; color:var(--muted); letter-spacing:3px; font-weight:400; }
+
+    .backend-status {
+      display:flex; align-items:center; gap:8px;
+      font-family:'Share Tech Mono',monospace; font-size:11px;
+    }
+    .status-dot { width:8px; height:8px; border-radius:50%; animation:blink 1.5s infinite; }
+    .dot-green { background:var(--safe); }
+    .dot-red   { background:var(--danger); }
+    .dot-grey  { background:var(--muted); }
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+    /* ── LAYOUT ── */
+    .container { position:relative; z-index:5; max-width:1380px; margin:0 auto; padding:28px 40px; }
+
+    .hero { text-align:center; padding:36px 0 28px; }
+    .hero-label {
+      font-family:'Share Tech Mono',monospace; font-size:11px;
+      letter-spacing:4px; color:var(--accent); margin-bottom:14px; opacity:0.7;
+    }
+    .hero h1 {
+      font-family:'Orbitron',monospace;
+      font-size:clamp(22px,3.5vw,38px); font-weight:900;
+      background:linear-gradient(135deg,#fff 30%,var(--accent));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      line-height:1.2; margin-bottom:14px;
+    }
+    .hero p { font-size:14px; color:var(--muted); max-width:560px; margin:0 auto; line-height:1.7; }
+
+    /* ── METRICS ── */
+    .metrics-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:24px 0; }
+    .metric-card {
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:14px; padding:20px 18px; position:relative; overflow:hidden;
+      transition:border-color 0.3s,transform 0.2s;
+    }
+    .metric-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+    .metric-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:2px;
+      opacity:0.6;
+    }
+    .metric-card.c-danger::before{background:linear-gradient(90deg,transparent,var(--danger),transparent)}
+    .metric-card.c-warn::before{background:linear-gradient(90deg,transparent,var(--warn),transparent)}
+    .metric-card.c-safe::before{background:linear-gradient(90deg,transparent,var(--safe),transparent)}
+    .metric-card.c-accent::before{background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+    .metric-label{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+    .metric-value{font-family:'Orbitron',monospace;font-size:30px;font-weight:700;line-height:1}
+    .metric-value.v-danger{color:var(--danger)} .metric-value.v-warn{color:var(--warn)}
+    .metric-value.v-safe{color:var(--safe)}     .metric-value.v-accent{color:var(--accent)}
+    .metric-sub{font-size:11px;color:var(--muted);margin-top:6px}
+
+    /* ── MAIN GRID ── */
+    .main-grid { display:grid; grid-template-columns:1fr 360px; gap:18px; margin-bottom:18px; }
+
+    /* ── PANEL ── */
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+    .panel-header {
+      padding:16px 22px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .panel-title {
+      font-family:'Orbitron',monospace; font-size:11px; font-weight:700;
+      letter-spacing:2.5px; color:var(--accent); text-transform:uppercase;
+    }
+    .panel-body { padding:22px; }
+
+    /* ── FORM ── */
+    .input-group { margin-bottom:14px; }
+    .input-label { display:block; font-size:10px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:7px; }
+    textarea, select {
+      width:100%; background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:13px 15px; color:var(--text);
+      font-family:'DM Sans',sans-serif; font-size:14px; outline:none;
+      transition:border-color 0.2s,box-shadow 0.2s; resize:vertical;
+    }
+    textarea{min-height:130px}
+    textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,255,0.1)}
+    select option{background:var(--surface)}
+
+    .btn-analyze {
+      width:100%; padding:14px;
+      background:linear-gradient(135deg,#005f8a,var(--accent));
+      border:none; border-radius:10px; color:#000;
+      font-family:'Orbitron',monospace; font-size:11px; font-weight:700;
+      letter-spacing:2px; cursor:pointer; transition:all 0.2s; margin-top:4px;
+    }
+    .btn-analyze:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,229,255,0.3)}
+    .btn-analyze:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+
+    /* ── RESULT BOX ── */
+    .result-box {
+      margin-top:18px; padding:18px; border-radius:12px;
+      border:1px solid var(--border); background:var(--surface); display:none;
+    }
+    .result-box.visible{display:block;animation:slide-in 0.4s ease}
+    @keyframes slide-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+    .result-badge {
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 14px; border-radius:20px;
+      font-family:'Share Tech Mono',monospace; font-size:13px; font-weight:700; margin-bottom:14px;
+    }
+    .badge-danger{background:rgba(255,59,92,0.15);color:var(--danger);border:1px solid rgba(255,59,92,0.3)}
+    .badge-warn{background:rgba(255,179,0,0.15);color:var(--warn);border:1px solid rgba(255,179,0,0.3)}
+    .badge-safe{background:rgba(0,230,118,0.15);color:var(--safe);border:1px solid rgba(0,230,118,0.3)}
+
+    .scores-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:14px 0}
+    .score-item{text-align:center}
+    .score-val{font-family:'Orbitron',monospace;font-size:16px;font-weight:700}
+    .score-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px}
+    .score-bar-wrap{height:4px;background:var(--border);border-radius:2px;margin-top:5px;overflow:hidden}
+    .score-bar{height:100%;border-radius:2px;transition:width 0.8s ease}
+
+    .keywords-found{margin-top:12px}
+    .kw-section-title{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+    .kw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+    .kw-chip{padding:3px 10px;border-radius:12px;font-size:11px;font-family:'Share Tech Mono',monospace;border:1px solid}
+    .chip-danger{color:var(--danger);border-color:rgba(255,59,92,0.4);background:rgba(255,59,92,0.08)}
+    .chip-warn{color:var(--warn);border-color:rgba(255,179,0,0.4);background:rgba(255,179,0,0.08)}
+    .chip-safe{color:var(--safe);border-color:rgba(0,230,118,0.4);background:rgba(0,230,118,0.08)}
+
+    .result-action{
+      margin-top:10px; padding:10px 14px;
+      border-radius:8px; font-size:13px; line-height:1.5;
+      border-left:3px solid;
+    }
+    .action-danger{border-color:var(--danger);background:rgba(255,59,92,0.06);color:var(--text)}
+    .action-warn{border-color:var(--warn);background:rgba(255,179,0,0.06);color:var(--text)}
+    .action-safe{border-color:var(--safe);background:rgba(0,230,118,0.06);color:var(--text)}
+
+    /* ── PIPELINE STEPS ── */
+    .pipeline-steps{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+    .pipe-step{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--bg);font-size:12px;border:1px solid transparent;transition:all 0.3s}
+    .pipe-step.active{border-color:var(--accent);background:rgba(0,229,255,0.05)}
+    .pipe-step.done{border-color:var(--safe);background:rgba(0,230,118,0.04)}
+    .pipe-num{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--muted);min-width:20px}
+    .pipe-step.active .pipe-num{color:var(--accent)}
+    .pipe-step.done .pipe-num{color:var(--safe)}
+    .pipe-info{flex:1}
+    .pipe-name{color:var(--text);font-weight:500;font-size:12px}
+    .pipe-desc{font-size:10px;color:var(--muted)}
+    .pipe-tick{font-size:14px}
+
+    /* ── ALERTS ── */
+    .alerts-list{display:flex;flex-direction:column;gap:9px}
+    .alert-item{
+      padding:12px 14px; border-radius:10px;
+      border-left:3px solid var(--border); background:var(--surface);
+      font-size:12px; animation:alert-appear 0.3s ease;
+    }
+    @keyframes alert-appear{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+    .alert-item.alert-danger{border-color:var(--danger);background:rgba(255,59,92,0.06)}
+    .alert-item.alert-warn{border-color:var(--warn);background:rgba(255,179,0,0.06)}
+    .alert-item.alert-safe{border-color:var(--safe);background:rgba(0,230,118,0.06)}
+    .alert-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+    .alert-type{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+    .alert-danger .alert-type{color:var(--danger)}
+    .alert-warn .alert-type{color:var(--warn)}
+    .alert-safe .alert-type{color:var(--safe)}
+    .alert-time{font-size:10px;color:var(--muted)}
+    .alert-text{color:var(--text);line-height:1.5}
+
+    /* ── BOTTOM GRID ── */
+    .bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+
+    .chart-wrap{position:relative;height:160px;display:flex;align-items:flex-end;gap:5px;padding:0 4px}
+    .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+    .bar-fill{width:100%;border-radius:4px 4px 0 0;transition:height 1s ease;min-height:3px}
+    .bar-label{font-size:10px;color:var(--muted);text-align:center}
+
+    .keyword-grid{display:flex;flex-wrap:wrap;gap:7px}
+    .keyword-tag{padding:4px 11px;border-radius:20px;font-size:11px;font-family:'Share Tech Mono',monospace;border:1px solid}
+    .kw-high{color:var(--danger);border-color:rgba(255,59,92,0.4);background:rgba(255,59,92,0.08)}
+    .kw-med{color:var(--warn);border-color:rgba(255,179,0,0.4);background:rgba(255,179,0,0.08)}
+    .kw-low{color:var(--muted);border-color:var(--border);background:transparent}
+
+    .sys-pipeline{display:flex;flex-direction:column;gap:8px}
+    .sys-step{display:flex;align-items:center;gap:12px;padding:11px 13px;background:var(--surface);border-radius:10px;border:1px solid var(--border);font-size:12px;transition:border-color 0.2s}
+    .sys-step:hover{border-color:var(--accent)}
+    .sys-num{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--accent);min-width:20px}
+    .sys-name{color:var(--text);font-weight:500}
+    .sys-desc{font-size:10px;color:var(--muted);margin-top:1px}
+    .sys-dot{width:7px;height:7px;border-radius:50%;margin-left:auto;flex-shrink:0}
+    .dot-active{background:var(--safe);animation:blink 1.5s infinite}
+    .dot-idle{background:var(--border)}
+
+    footer{text-align:center;padding:24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:'Share Tech Mono',monospace;letter-spacing:1px;margin-top:18px}
+    footer span{color:var(--accent)}
+
+    .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,229,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .error-box{margin-top:14px;padding:12px 16px;border-radius:10px;border:1px solid rgba(255,59,92,0.4);background:rgba(255,59,92,0.08);color:var(--danger);font-size:13px;display:none}
+    .error-box.visible{display:block}
+
+    @media(max-width:1100px){.main-grid{grid-template-columns:1fr}.bottom-grid{grid-template-columns:1fr 1fr}.metrics-row{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:700px){header{padding:14px 18px}.container{padding:16px}.bottom-grid{grid-template-columns:1fr}.metrics-row{grid-template-columns:repeat(2,1fr)}}
+
+    ::-webkit-scrollbar{width:5px}
+    ::-webkit-scrollbar-track{background:var(--bg)}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚠</div>
+    <div class="logo-text">
+      EWS – MisinfoGuard
+      <span>Digital Panic Detection System</span>
+    </div>
+  </div>
+  <div class="backend-status">
+    <div class="status-dot dot-grey" id="status-dot"></div>
+    <span id="status-text" style="color:var(--muted)">CHECKING BACKEND...</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-label">Capstone Project · Data Science · Early Warning System</div>
+    <h1>Early Warning System for<br/>Digital Misinformation-Driven Panic</h1>
+    <p>Real-time NLP-powered detection of misleading content and panic-inducing patterns. Connected to a live Python Flask backend with NLP preprocessing and ML classification.</p>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics-row">
+    <div class="metric-card c-danger">
+      <div class="metric-label">Panic Alerts Today</div>
+      <div class="metric-value v-danger" id="metric-alerts">0</div>
+      <div class="metric-sub">From current session</div>
+    </div>
+    <div class="metric-card c-warn">
+      <div class="metric-label">Misinfo Detected</div>
+      <div class="metric-value v-warn" id="metric-misinfo">0</div>
+      <div class="metric-sub">Medium + High risk</div>
+    </div>
+    <div class="metric-card c-safe">
+      <div class="metric-label">Safe Content</div>
+      <div class="metric-value v-safe" id="metric-safe">0</div>
+      <div class="metric-sub">Verified legitimate</div>
+    </div>
+    <div class="metric-card c-accent">
+      <div class="metric-label">Texts Analyzed</div>
+      <div class="metric-value v-accent" id="metric-total">0</div>
+      <div class="metric-sub">This session</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- ANALYZER -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">🔍 Text Analyzer — Python Backend</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'Share Tech Mono',monospace">POST → /analyze</div>
+      </div>
+      <div class="panel-body">
+
+        <div class="input-group">
+          <label class="input-label">Paste News / Social Media Text</label>
+          <textarea id="input-text" placeholder="Paste any news article, tweet, or social media post here. The Python backend will preprocess, extract features, and classify it..."></textarea>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="input-group" style="margin:0">
+            <label class="input-label">Content Category</label>
+            <select id="select-category">
+              <option value="health">Health / Medical</option>
+              <option value="disaster">Natural Disaster</option>
+              <option value="financial">Financial / Economy</option>
+              <option value="political">Political</option>
+              <option value="social">Social Conflict</option>
+              <option value="general">General</option>
+            </select>
+          </div>
+          <div class="input-group" style="margin:0">
+            <label class="input-label">Alert Threshold</label>
+            <select id="select-threshold">
+              <option value="0.5">Low (0.5)</option>
+              <option value="0.65" selected>Medium (0.65)</option>
+              <option value="0.8">High (0.8)</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-analyze" id="btn-analyze" onclick="analyzeText()">
+          ANALYZE WITH PYTHON BACKEND
+        </button>
+
+        <!-- Error -->
+        <div class="error-box" id="error-box">
+          ⚠ Could not connect to Python backend at <strong>localhost:5000</strong>.<br/>
+          Make sure you ran: <code style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">python app.py</code>
+        </div>
+
+        <!-- Pipeline Steps (animated during analysis) -->
+        <div class="pipeline-steps" id="pipeline-steps" style="display:none;margin-top:16px">
+          <div class="pipe-step" id="ps-1">
+            <div class="pipe-num">01</div>
+            <div class="pipe-info"><div class="pipe-name">Text Preprocessing</div><div class="pipe-desc">Removing URLs, punctuation, stopwords</div></div>
+            <div class="pipe-tick" id="tick-1">⋯</div>
+          </div>
+          <div class="pipe-step" id="ps-2">
+            <div class="pipe-num">02</div>
+            <div class="pipe-info"><div class="pipe-name">TF-IDF Feature Extraction</div><div class="pipe-desc">Tokenizing and vectorizing text</div></div>
+            <div class="pipe-tick" id="tick-2">⋯</div>
+          </div>
+          <div class="pipe-step" id="ps-3">
+            <div class="pipe-num">03</div>
+            <div class="pipe-info"><div class="pipe-name">Keyword Scoring</div><div class="pipe-desc">Scanning panic & misinfo indicators</div></div>
+            <div class="pipe-tick" id="tick-3">⋯</div>
+          </div>
+          <div class="pipe-step" id="ps-4">
+            <div class="pipe-num">04</div>
+            <div class="pipe-info"><div class="pipe-name">Sentiment Analysis</div><div class="pipe-desc">Measuring emotional polarity</div></div>
+            <div class="pipe-tick" id="tick-4">⋯</div>
+          </div>
+          <div class="pipe-step" id="ps-5">
+            <div class="pipe-num">05</div>
+            <div class="pipe-info"><div class="pipe-name">ML Classification</div><div class="pipe-desc">Generating final risk label</div></div>
+            <div class="pipe-tick" id="tick-5">⋯</div>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div class="result-box" id="result-box">
+          <div id="result-badge"></div>
+
+          <div class="scores-grid">
+            <div class="score-item">
+              <div class="score-val" id="sc-misinfo" style="color:var(--danger)">—</div>
+              <div class="score-lbl">Misinfo</div>
+              <div class="score-bar-wrap"><div class="score-bar" id="bar-misinfo" style="background:var(--danger);width:0%"></div></div>
+            </div>
+            <div class="score-item">
+              <div class="score-val" id="sc-panic" style="color:var(--warn)">—</div>
+              <div class="score-lbl">Panic Risk</div>
+              <div class="score-bar-wrap"><div class="score-bar" id="bar-panic" style="background:var(--warn);width:0%"></div></div>
+            </div>
+            <div class="score-item">
+              <div class="score-val" id="sc-sentiment" style="color:var(--accent)">—</div>
+              <div class="score-lbl">Sentiment</div>
+              <div class="score-bar-wrap"><div class="score-bar" id="bar-sentiment" style="background:var(--accent);width:0%"></div></div>
+            </div>
+            <div class="score-item">
+              <div class="score-val" id="sc-credibility" style="color:var(--safe)">—</div>
+              <div class="score-lbl">Credibility</div>
+              <div class="score-bar-wrap"><div class="score-bar" id="bar-credibility" style="background:var(--safe);width:0%"></div></div>
+            </div>
+            <div class="score-item">
+              <div class="score-val" id="sc-words" style="color:var(--muted)">—</div>
+              <div class="score-lbl">Words</div>
+              <div class="score-bar-wrap"><div class="score-bar" id="bar-words" style="background:var(--muted);width:0%"></div></div>
+            </div>
+          </div>
+
+          <!-- Keywords found -->
+          <div class="keywords-found" id="keywords-found"></div>
+
+          <!-- Action -->
+          <div class="result-action" id="result-action"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ALERTS FEED -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">📡 Live Alert Feed</div>
+        <button onclick="clearAlerts()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Share Tech Mono',monospace">CLEAR</button>
+      </div>
+      <div class="panel-body" style="padding:14px;max-height:520px;overflow-y:auto">
+        <div class="alerts-list" id="alerts-list">
+          <div style="text-align:center;color:var(--muted);padding:40px 20px;font-size:13px;font-family:'Share Tech Mono',monospace;line-height:1.8">
+            WAITING FOR ANALYSIS<br/>
+            <span style="font-size:11px;opacity:0.6">Alerts will appear here after you<br/>submit text for analysis</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+
+  <!-- BOTTOM GRID -->
+  <div class="bottom-grid">
+
+    <!-- CHART -->
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">📊 Session Detection Chart</div></div>
+      <div class="panel-body">
+        <div class="chart-wrap" id="chart"></div>
+        <div style="display:flex;gap:14px;margin-top:12px;justify-content:center;font-size:11px;color:var(--muted)">
+          <span><span style="color:var(--danger)">■</span> Panic</span>
+          <span><span style="color:var(--warn)">■</span> Misinfo</span>
+          <span><span style="color:var(--safe)">■</span> Safe</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- KEYWORDS -->
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">🔑 Crisis Keywords</div></div>
+      <div class="panel-body">
+        <div class="keyword-grid" id="keyword-grid">
+          <!-- Filled by /keywords endpoint -->
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.6">
+          <span style="color:var(--danger)">■ Panic</span> &nbsp;
+          <span style="color:var(--warn)">■ Misinfo</span> &nbsp;
+          <span style="color:var(--muted)">■ Negative</span><br/>
+          Fetched live from Python backend <code style="font-size:10px">/keywords</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYSTEM PIPELINE -->
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">⚙ System Pipeline</div></div>
+      <div class="panel-body">
+        <div class="sys-pipeline">
+          <div class="sys-step">
+            <div class="sys-num">01</div>
+            <div><div class="sys-name">Data Ingestion</div><div class="sys-desc">Pandas / CSV stream input</div></div>
+            <div class="sys-dot dot-active"></div>
+          </div>
+          <div class="sys-step">
+            <div class="sys-num">02</div>
+            <div><div class="sys-name">Text Preprocessing</div><div class="sys-desc">NLTK / spaCy pipeline</div></div>
+            <div class="sys-dot dot-active"></div>
+          </div>
+          <div class="sys-step">
+            <div class="sys-num">03</div>
+            <div><div class="sys-name">Feature Extraction</div><div class="sys-desc">TF-IDF Vectorization</div></div>
+            <div class="sys-dot dot-active"></div>
+          </div>
+          <div class="sys-step">
+            <div class="sys-num">04</div>
+            <div><div class="sys-name">ML Classification</div><div class="sys-desc">Random Forest + LSTM</div></div>
+            <div class="sys-dot dot-active"></div>
+          </div>
+          <div class="sys-step">
+            <div class="sys-num">05</div>
+            <div><div class="sys-name">Alert Generation</div><div class="sys-desc">Threshold-based panic alert</div></div>
+            <div class="sys-dot dot-active"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /bottom-grid -->
+
+</div><!-- /container -->
+
+<footer>
+  CAPSTONE PROJECT · <span>Early Warning System for Digital Misinformation-Driven Panic</span> · Data Science · NLP · ML
+</footer>
+
+<!-- ═══════════════ JAVASCRIPT ═══════════════ -->
+<script>
+  const BACKEND = 'http://localhost:5000';
+
+  // Session counters
+  let counts = { panic: 0, misinfo: 0, safe: 0, total: 0 };
+  // Chart: last 7 analyses
+  let chartHistory = [];
+
+  // ── Check backend health on load ──
+  async function checkBackend() {
+    const dot  = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    try {
+      const res = await fetch(`${BACKEND}/health`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        dot.className  = 'status-dot dot-green';
+        text.style.color = 'var(--safe)';
+        text.textContent = 'PYTHON BACKEND ONLINE';
+        loadKeywords();
+      } else { throw new Error(); }
+    } catch {
+      dot.className  = 'status-dot dot-red';
+      text.style.color = 'var(--danger)';
+      text.textContent = 'BACKEND OFFLINE — Run: python app.py';
+    }
+  }
+
+  // ── Load keywords from /keywords ──
+  async function loadKeywords() {
+    try {
+      const res  = await fetch(`${BACKEND}/keywords`);
+      const data = await res.json();
+      const grid = document.getElementById('keyword-grid');
+      grid.innerHTML = '';
+      data.panic_keywords.slice(0,8).forEach(k => {
+        grid.innerHTML += `<span class="keyword-tag kw-high">${k}</span>`;
+      });
+      data.misinfo_keywords.slice(0,6).forEach(k => {
+        grid.innerHTML += `<span class="keyword-tag kw-med">${k}</span>`;
+      });
+      data.negative_words.slice(0,5).forEach(k => {
+        grid.innerHTML += `<span class="keyword-tag kw-low">${k}</span>`;
+      });
+    } catch { /* backend offline */ }
+  }
+
+  // ── Animated pipeline steps ──
+  function animatePipeline(callback) {
+    const steps = document.getElementById('pipeline-steps');
+    steps.style.display = 'flex';
+    // Reset
+    for (let i=1;i<=5;i++) {
+      document.getElementById(`ps-${i}`).className = 'pipe-step';
+      document.getElementById(`tick-${i}`).textContent = '⋯';
+    }
+    let step = 1;
+    const timer = setInterval(() => {
+      if (step > 1) {
+        document.getElementById(`ps-${step-1}`).className = 'pipe-step done';
+        document.getElementById(`tick-${step-1}`).textContent = '✔';
+      }
+      if (step <= 5) {
+        document.getElementById(`ps-${step}`).className = 'pipe-step active';
+        document.getElementById(`tick-${step}`).textContent = '⋯';
+        step++;
+      } else {
+        clearInterval(timer);
+        callback();
+      }
+    }, 320);
+  }
+
+  // ── Main Analyze Function ──
+  async function analyzeText() {
+    const text      = document.getElementById('input-text').value.trim();
+    const category  = document.getElementById('select-category').value;
+    const threshold = document.getElementById('select-threshold').value;
+    const errorBox  = document.getElementById('error-box');
+    const resultBox = document.getElementById('result-box');
+    const btn       = document.getElementById('btn-analyze');
+
+    if (!text) { alert('Please paste some text to analyze.'); return; }
+
+    errorBox.classList.remove('visible');
+    resultBox.classList.remove('visible');
+    btn.innerHTML = '<span class="spinner"></span>RUNNING PIPELINE...';
+    btn.disabled  = true;
+
+    // Animate pipeline steps, then fetch backend
+    animatePipeline(async () => {
+      try {
+        const res = await fetch(`${BACKEND}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, category, threshold: parseFloat(threshold) })
+        });
+
+        if (!res.ok) throw new Error('Server error');
+        const data = await res.json();
+        displayResult(data, text);
+
+      } catch (err) {
+        errorBox.classList.add('visible');
+        document.getElementById('pipeline-steps').style.display = 'none';
+      } finally {
+        btn.innerHTML = 'ANALYZE WITH PYTHON BACKEND';
+        btn.disabled  = false;
+      }
+    });
+  }
+
+  // ── Display Result ──
+  function displayResult(data, originalText) {
+    const cls  = data.classification;
+    const pipe = data.pipeline;
+
+    // Badge
+    const badgeMap = { 2:'badge-danger', 1:'badge-warn', 0:'badge-safe' };
+    const iconMap  = { 2:'⚠', 1:'⚡', 0:'✔' };
+    document.getElementById('result-badge').innerHTML =
+      `<div class="result-badge ${badgeMap[cls.label]}">${iconMap[cls.label]} ${cls.category}</div>`;
+
+    // Scores
+    const mi = pipe.step2_misinfo_score;
+    const pk = pipe.step3_panic_score;
+    const se = pipe.step4_sentiment_score;
+    const cr = pipe.step5_credibility_score;
+    const wc = Math.min(pipe.step1_preprocessing.tokens_extracted / 200, 1);
+
+    document.getElementById('sc-misinfo').textContent     = pct(mi);
+    document.getElementById('sc-panic').textContent       = pct(pk);
+    document.getElementById('sc-sentiment').textContent   = pct(se);
+    document.getElementById('sc-credibility').textContent = pct(cr);
+    document.getElementById('sc-words').textContent       = pipe.step1_preprocessing.tokens_extracted;
+
+    setTimeout(() => {
+      document.getElementById('bar-misinfo').style.width     = pct(mi);
+      document.getElementById('bar-panic').style.width       = pct(pk);
+      document.getElementById('bar-sentiment').style.width   = pct(se);
+      document.getElementById('bar-credibility').style.width = pct(cr);
+      document.getElementById('bar-words').style.width       = (wc*100)+'%';
+    }, 50);
+
+    // Keywords found
+    const kf = data.keywords_found;
+    let kwHtml = '';
+    if (kf.panic_triggers.length) {
+      kwHtml += `<div class="kw-section-title" style="margin-top:10px">Panic Triggers Found</div><div class="kw-chips">`;
+      kf.panic_triggers.forEach(k => kwHtml += `<span class="kw-chip chip-warn">${k}</span>`);
+      kwHtml += '</div>';
+    }
+    if (kf.misinfo_triggers.length) {
+      kwHtml += `<div class="kw-section-title">Misinfo Triggers Found</div><div class="kw-chips">`;
+      kf.misinfo_triggers.forEach(k => kwHtml += `<span class="kw-chip chip-danger">${k}</span>`);
+      kwHtml += '</div>';
+    }
+    if (kf.credibility_signals.length) {
+      kwHtml += `<div class="kw-section-title">Credibility Signals</div><div class="kw-chips">`;
+      kf.credibility_signals.forEach(k => kwHtml += `<span class="kw-chip chip-safe">${k}</span>`);
+      kwHtml += '</div>';
+    }
+    document.getElementById('keywords-found').innerHTML = kwHtml;
+
+    // Action
+    const actionClass = { 2:'action-danger', 1:'action-warn', 0:'action-safe' }[cls.label];
+    document.getElementById('result-action').className = `result-action ${actionClass}`;
+    document.getElementById('result-action').innerHTML =
+      `<strong>Recommendation:</strong> ${cls.action}<br/>
+       <span style="font-size:11px;opacity:0.7">Alert triggered: ${data.alert_triggered ? 'YES ⚠' : 'NO ✔'} · Threshold: ${data.input.threshold}</span>`;
+
+    document.getElementById('result-box').classList.add('visible');
+
+    // Update counters
+    counts.total++;
+    if (cls.label === 2) { counts.panic++; counts.misinfo++; }
+    else if (cls.label === 1) counts.misinfo++;
+    else counts.safe++;
+
+    document.getElementById('metric-alerts').textContent = counts.panic;
+    document.getElementById('metric-misinfo').textContent = counts.misinfo;
+    document.getElementById('metric-safe').textContent   = counts.safe;
+    document.getElementById('metric-total').textContent  = counts.total;
+
+    // Alert feed
+    const typeMap = { 2:['danger','⚠ PANIC TRIGGER'], 1:['warn','⚡ MISINFO ALERT'], 0:['safe','✔ VERIFIED SAFE'] };
+    const [aType, aLabel] = typeMap[cls.label];
+    pushAlert(aType, aLabel, originalText.substring(0, 100) + (originalText.length>100?'...':''));
+
+    // Chart
+    chartHistory.push({ label: cls.label });
+    if (chartHistory.length > 7) chartHistory.shift();
+    buildChart();
+  }
+
+  function pct(val) { return Math.round(val * 100) + '%'; }
+
+  // ── Alert Feed ──
+  let alertsSeeded = false;
+  function pushAlert(type, label, msg) {
+    const list = document.getElementById('alerts-list');
+    if (!alertsSeeded) { list.innerHTML = ''; alertsSeeded = true; }
+    const now  = new Date();
+    const time = now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    const div  = document.createElement('div');
+    div.className = `alert-item alert-${type}`;
+    div.innerHTML = `
+      <div class="alert-meta">
+        <div class="alert-type">${label}</div>
+        <div class="alert-time">${time}</div>
+      </div>
+      <div class="alert-text">${msg}</div>`;
+    list.insertBefore(div, list.firstChild);
+  }
+
+  function clearAlerts() {
+    alertsSeeded = false;
+    document.getElementById('alerts-list').innerHTML =
+      `<div style="text-align:center;color:var(--muted);padding:30px;font-size:12px;font-family:'Share Tech Mono',monospace">FEED CLEARED · MONITORING ACTIVE</div>`;
+  }
+
+  // ── Chart ──
+  function buildChart() {
+    const wrap = document.getElementById('chart');
+    wrap.innerHTML = '';
+    if (!chartHistory.length) return;
+    const max = 1;
+    chartHistory.forEach((d, i) => {
+      const isPanic  = d.label === 2;
+      const isMisinfo= d.label === 1;
+      const isSafe   = d.label === 0;
+      const col = document.createElement('div');
+      col.className = 'bar-col';
+      col.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;width:100%;gap:2px;">
+          ${isPanic  ? '<div class="bar-fill" style="height:55%;background:var(--danger);opacity:0.85"></div>' : ''}
+          ${isMisinfo? '<div class="bar-fill" style="height:40%;background:var(--warn);opacity:0.8"></div>'   : ''}
+          ${isSafe   ? '<div class="bar-fill" style="height:70%;background:var(--safe);opacity:0.7"></div>'   : ''}
+        </div>
+        <div class="bar-label">#${i+1}</div>`;
+      wrap.appendChild(col);
+    });
+  }
+
+  buildChart();
+  checkBackend();
+  setInterval(checkBackend, 10000); // recheck every 10s
+</script>
+</body>
+</html>
