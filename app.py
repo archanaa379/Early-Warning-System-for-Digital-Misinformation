@@ -10,7 +10,7 @@ import math
 from collections import Counter
 
 app = Flask(__name__)
-CORS(app)  # Allow frontend (HTML) to talk to this backend
+CORS(app, origins="*")  # Allow frontend (HTML) to talk to this backend
 
 # ── Stopwords (mini version — install nltk for full list) ──
 STOPWORDS = {
@@ -268,4 +268,6 @@ def analyze():
 if __name__ == '__main__':
     print("\n🚀 Early Warning System Backend — Running on http://localhost:5000")
     print("📡 Endpoints: /  |  /analyze  |  /health  |  /keywords\n")
-    app.run(debug=True, port=5000)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
